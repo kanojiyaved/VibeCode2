@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHRTNR — URL Shortener</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #c8f135;
+    --accent2: #7c3aed;
+    --text: #f0f0f8;
+    --muted: #6b6b8a;
+    --danger: #ff4d6d;
+    --success: #c8f135;
+    --card: #13131c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,241,53,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,241,53,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 60px;
+  }
+  .logo {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--muted); }
+  .tagline {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    border-left: 2px solid var(--border);
+    padding-left: 16px;
+    line-height: 1.6;
+  }
+
+  /* Input section */
+  .shorten-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .shorten-section::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+
+  .section-title {
+    font-size: 0.7rem;
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    margin-bottom: 20px;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .url-input {
+    flex: 1;
+    min-width: 240px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .url-input::placeholder { color: var(--muted); }
+  .url-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(200,241,53,0.1);
+  }
+  .url-input.error {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(255,77,109,0.1);
+  }
+
+  .btn {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.15s, opacity 0.15s, box-shadow 0.2s;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(200,241,53,0.2);
+  }
+  .btn:active { transform: translateY(0); }
+
+  .error-msg {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--danger);
+    margin-top: 10px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* Result card */
+  .result-card {
+    background: rgba(200,241,53,0.05);
+    border: 1px solid rgba(200,241,53,0.2);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-top: 18px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    animation: slideIn 0.3s ease;
+  }
+  .result-card.show { display: flex; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .result-link {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.95rem;
+    color: var(--accent);
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .copy-btn {
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .copy-btn:hover { background: #2a2a3e; }
+  .copy-btn.copied {
+    background: rgba(200,241,53,0.15);
+    color: var(--accent);
+  }
+
+  /* Dashboard */
+  .dashboard-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .dashboard-title {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .stats-pill {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    background: var(--border);
+    border-radius: 99px;
+    padding: 6px 14px;
+    color: var(--muted);
+  }
+  .stats-pill span { color: var(--accent); }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    border: 1px dashed var(--border);
+    border-radius: 16px;
+  }
+  .empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+    opacity: 0.4;
+  }
+
+  /* Link table */
+  .links-table {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .link-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px 24px;
+    align-items: center;
+    transition: border-color 0.2s, transform 0.15s;
+    animation: fadeUp 0.3s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .link-row:hover {
+    border-color: rgba(200,241,53,0.2);
+    transform: translateX(2px);
+  }
+
+  .link-info {}
+  .original-url {
+    font-size: 0.82rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 440px;
+    margin-bottom: 6px;
+  }
+  .short-url-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.88rem;
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 700;
+  }
+  .short-url-display:hover { text-decoration: underline; }
+
+  .click-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    min-width: 64px;
+    text-align: center;
+  }
+  .click-count {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .click-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 3px;
+  }
+
+  .row-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .icon-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 7px;
+    padding: 7px 10px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    font-family: 'Space Mono', monospace;
+  }
+  .icon-btn:hover {
+    background: var(--border);
+    color: var(--text);
+    border-color: var(--muted);
+  }
+  .icon-btn.del:hover {
+    background: rgba(255,77,109,0.1);
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  .icon-btn.toggle-disabled {
+    background: rgba(255,77,109,0.1);
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  .icon-btn.toggle-disabled:hover {
+    background: rgba(124,58,237,0.1);
+    color: var(--accent2);
+    border-color: var(--accent2);
+  }
+
+  /* Advanced settings section */
+  .advanced-settings {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .settings-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .settings-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .settings-input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    width: 100px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .settings-input:focus {
+    border-color: var(--accent);
+  }
+
+  /* Link metadata display */
+  .link-metadata {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    flex-wrap: wrap;
+  }
+  .metadata-item {
+    display: flex;
+    gap: 4px;
+  }
+  .metadata-item strong {
+    color: var(--accent);
+  }
+
+  /* Link status badge */
+  .link-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .link-status-badge.active {
+    background: rgba(200,241,53,0.15);
+    color: var(--accent);
+  }
+  .link-status-badge.disabled {
+    background: rgba(255,77,109,0.15);
+    color: var(--danger);
+  }
+  .link-status-badge.expired {
+    background: rgba(255,159,64,0.15);
+    color: #ff9f40;
+  }
+
+  /* Modal styles */
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.8);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  .modal.active { display: flex; }
+  .modal-content {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 450px;
+    width: 90%;
+    animation: modalSlide 0.3s ease;
+  }
+  @keyframes modalSlide {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .modal-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+  .modal-input-group {
+    margin-bottom: 16px;
+  }
+  .modal-input-group label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .modal-input-group input {
+    width: 100%;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .modal-input-group input:focus {
+    border-color: var(--accent);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+  .modal-btn {
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    text-transform: uppercase;
+  }
+  .modal-btn:hover { opacity: 0.9; }
+  .modal-btn.cancel {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    background: var(--accent);
+    color: #0a0a0f;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 12px 20px;
+    border-radius: 10px;
+    z-index: 999;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* Redirect overlay */
+  .redirect-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(10,10,15,0.97);
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .redirect-overlay.active { display: flex; }
+  .redirect-spinner {
+    width: 48px; height: 48px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 24px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .redirect-text {
+    font-family: 'Space Mono', monospace;
+    color: var(--muted);
+    font-size: 0.82rem;
+  }
+  .redirect-url {
+    color: var(--accent);
+    margin-top: 8px;
+    font-size: 0.95rem;
+    max-width: 400px;
+    word-break: break-all;
+  }
+
+  @media (max-width: 600px) {
+    .link-row { grid-template-columns: 1fr; }
+    .row-actions { justify-content: flex-start; }
+    .original-url { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">SHRTNR<span>.</span></div>
+    <div class="tagline">URL shortener<br>+ analytics</div>
+  </header>
+
+  <!-- Input Section -->
+  <div class="shorten-section">
+    <div class="section-title">// paste your long URL</div>
+    <div class="input-row">
+      <input
+        type="text"
+        id="urlInput"
+        class="url-input"
+        placeholder="https://your-very-long-url.com/some/deep/path?query=value"
+        autocomplete="off"
+      />
+      <button class="btn" onclick="shortenURL()">Shorten →</button>
+    </div>
+    <div class="advanced-settings">
+      <div class="settings-group">
+        <label class="settings-label" for="clickLimitInput">Max Clicks (Optional)</label>
+        <input
+          type="number"
+          id="clickLimitInput"
+          class="settings-input"
+          placeholder="No limit"
+          min="1"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+    <div class="error-msg" id="errorMsg">⚠ Please enter a valid URL (must start with http:// or https://)</div>
+    <div class="result-card" id="resultCard">
+      <div>
+        <div style="font-size:0.65rem;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:4px;">SHORTENED LINK</div>
+        <a class="result-link" id="resultLink" onclick="handleShortLinkClick(event)"></a>
+      </div>
+      <button class="copy-btn" id="copyBtn" onclick="copyResult()">COPY</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="dashboard-header">
+    <div class="dashboard-title">Link Dashboard</div>
+    <div class="stats-pill">Total clicks: <span id="totalClicks">0</span></div>
+  </div>
+
+  <div id="linksContainer">
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🔗</div>
+      No links yet.<br>Shorten your first URL above.
+    </div>
+    <div class="links-table" id="linksTable"></div>
+  </div>
+</div>
+
+<!-- Redirect Overlay -->
+<div class="redirect-overlay" id="redirectOverlay">
+  <div class="redirect-spinner"></div>
+  <div class="redirect-text">Redirecting you to</div>
+  <div class="redirect-url" id="redirectTarget"></div>
+</div>
+
+<!-- Edit Link Modal -->
+<div class="modal" id="editModal">
+  <div class="modal-content">
+    <div class="modal-title">Edit Destination URL</div>
+    <div class="modal-input-group">
+      <label>New Destination URL</label>
+      <input type="text" id="editUrlInput" placeholder="https://new-destination.com" />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeEditModal()">Cancel</button>
+      <button class="modal-btn" onclick="saveEditedURL()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Link Expired/Disabled Modal -->
+<div class="modal" id="linkStatusModal">
+  <div class="modal-content" style="text-align: center;">
+    <div style="font-size: 3rem; margin-bottom: 16px;">🔒</div>
+    <div class="modal-title" id="linkStatusTitle">Link Expired</div>
+    <div style="color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.9rem; line-height: 1.6;" id="linkStatusMessage">
+      This link has reached its maximum click limit.
+    </div>
+    <div class="modal-actions" style="justify-content: center; margin-top: 24px;">
+      <button class="modal-btn" onclick="closeLinkStatusModal()">Ok</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/*
+  ══════════════════════════════════════════
+  ENHANCED LINK MANAGER
+  ══════════════════════════════════════════
+
+  DATA MODEL (stored in localStorage as "shrtnr_links"):
+  links = [
+    {
+      id: "ab3f9x",
+      original: "https://...",
+      short: "shrtnr/ab3f9x",
+      clicks: 0,
+      clickLimit: 10,           // Optional max clicks
+      isEnabled: true,          // Toggle enable/disable
+      createdAt: timestamp,     // Creation time
+      lastAccessed: timestamp,  // Last click time
+    },
+    ...
+  ]
+
+  FEATURES:
+  1. Link Expiry Limit     → clickLimit field, checked on redirect
+  2. Link Enable/Disable   → isEnabled toggle button
+  3. Edit Destination URL  → Modal to update original URL
+  4. Creation Timestamp    → Displayed in dashboard
+  5. Last Accessed         → Updated on each redirect, displayed
+  6. Data Persistence      → localStorage handles all data
+  ══════════════════════════════════════════
+*/
+
+// ── Storage helpers ──────────────────────────────────────────
+const STORAGE_KEY = 'shrtnr_links';
+
+function loadLinks() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+  } catch { return []; }
+}
+
+function saveLinks(links) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+}
+
+// ── ID generation ─────────────────────────────────────────────
+function generateID() {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id = '';
+  for (let i = 0; i < 6; i++) {
+    id += chars[Math.floor(Math.random() * chars.length)];
+  }
+  const links = loadLinks();
+  if (links.find(l => l.id === id)) return generateID();
+  return id;
+}
+
+// ── Validation ────────────────────────────────────────────────
+function isValidURL(str) {
+  if (!str || !str.trim()) return false;
+  try {
+    const url = new URL(str.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+// ── Utility: Format timestamp ─────────────────────────────────
+function formatTime(timestamp) {
+  if (!timestamp) return 'Never';
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diff = now - date; // milliseconds
+  
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  
+  if (seconds < 60) return 'Just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+// ── Shorten ───────────────────────────────────────────────────
+function shortenURL() {
+  const input = document.getElementById('urlInput');
+  const clickLimitInput = document.getElementById('clickLimitInput');
+  const errorMsg = document.getElementById('errorMsg');
+  const resultCard = document.getElementById('resultCard');
+  const val = input.value.trim();
+
+  // Validation
+  if (!isValidURL(val)) {
+    input.classList.add('error');
+    errorMsg.classList.add('show');
+    resultCard.classList.remove('show');
+    input.focus();
+    return;
+  }
+
+  input.classList.remove('error');
+  errorMsg.classList.remove('show');
+
+  // Parse click limit
+  const clickLimit = clickLimitInput.value ? Math.max(1, parseInt(clickLimitInput.value)) : null;
+
+  // Create link object
+  const id = generateID();
+  const currentTime = Date.now();
+  const newLink = {
+    id,
+    original: val,
+    short: `shrtnr/${id}`,
+    clicks: 0,
+    clickLimit: clickLimit,
+    isEnabled: true,
+    createdAt: currentTime,
+    lastAccessed: null
+  };
+
+  // Save
+  const links = loadLinks();
+  links.unshift(newLink);
+  saveLinks(links);
+
+  // Show result
+  const resultLinkEl = document.getElementById('resultLink');
+  resultLinkEl.textContent = newLink.short;
+  resultLinkEl.dataset.id = id;
+  resultCard.classList.add('show');
+
+  // Reset copy button
+  const copyBtn = document.getElementById('copyBtn');
+  copyBtn.textContent = 'COPY';
+  copyBtn.classList.remove('copied');
+
+  // Re-render dashboard
+  renderLinks();
+
+  // Clear inputs
+  input.value = '';
+  clickLimitInput.value = '';
+
+  showToast('Link created!');
+}
+
+// ── Redirect with validation ──────────────────────────────────
+function triggerRedirect(id) {
+  const links = loadLinks();
+  const link = links.find(l => l.id === id);
+  if (!link) return;
+
+  // Check if link is enabled
+  if (!link.isEnabled) {
+    showLinkStatusModal(
+      'Link Disabled',
+      'This link has been disabled by the creator.'
+    );
+    return;
+  }
+
+  // Check if click limit exceeded
+  if (link.clickLimit && link.clicks >= link.clickLimit) {
+    showLinkStatusModal(
+      'Link Expired',
+      `This link has reached its maximum click limit of ${link.clickLimit}.`
+    );
+    return;
+  }
+
+  // Show redirect overlay
+  const overlay = document.getElementById('redirectOverlay');
+  const target = document.getElementById('redirectTarget');
+  target.textContent = link.original;
+  overlay.classList.add('active');
+
+  // Increment click count and update last accessed
+  link.clicks++;
+  link.lastAccessed = Date.now();
+  saveLinks(links);
+
+  // After short delay, open URL + close overlay
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    window.open(link.original, '_blank', 'noopener,noreferrer');
+    renderLinks();
+  }, 1200);
+}
+
+// Handle short link click from result card
+function handleShortLinkClick(event) {
+  event && event.preventDefault();
+  const id = event.currentTarget.dataset.id;
+  triggerRedirect(id);
+}
+
+// ── Copy to clipboard ─────────────────────────────────────────
+function copyResult() {
+  const link = document.getElementById('resultLink').textContent;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'COPIED!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'COPY';
+      btn.classList.remove('copied');
+    }, 2000);
+    showToast('Copied to clipboard!');
+  });
+}
+
+function copyShortLink(id) {
+  const links = loadLinks();
+  const link = links.find(l => l.id === id);
+  if (!link) return;
+  navigator.clipboard.writeText(link.short).then(() => showToast('Copied!'));
+}
+
+// ── Toggle link enabled/disabled ──────────────────────────────
+function toggleLinkStatus(id) {
+  const links = loadLinks();
+  const link = links.find(l => l.id === id);
+  if (!link) return;
+  
+  link.isEnabled = !link.isEnabled;
+  saveLinks(links);
+  renderLinks();
+  showToast(link.isEnabled ? 'Link enabled' : 'Link disabled');
+}
+
+// ── Edit link URL modal ───────────────────────────────────────
+let editingLinkId = null;
+
+function openEditModal(id) {
+  const links = loadLinks();
+  const link = links.find(l => l.id === id);
+  if (!link) return;
+  
+  editingLinkId = id;
+  document.getElementById('editUrlInput').value = link.original;
+  document.getElementById('editModal').classList.add('active');
+  document.getElementById('editUrlInput').focus();
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('active');
+  editingLinkId = null;
+}
+
+function saveEditedURL() {
+  if (!editingLinkId) return;
+  
+  const newURL = document.getElementById('editUrlInput').value.trim();
+  
+  if (!isValidURL(newURL)) {
+    showToast('Invalid URL!');
+    return;
+  }
+  
+  const links = loadLinks();
+  const link = links.find(l => l.id === editingLinkId);
+  if (!link) return;
+  
+  link.original = newURL;
+  saveLinks(links);
+  renderLinks();
+  closeEditModal();
+  showToast('URL updated!');
+}
+
+// ── Link status modal (expired/disabled) ──────────────────────
+function showLinkStatusModal(title, message) {
+  document.getElementById('linkStatusTitle').textContent = title;
+  document.getElementById('linkStatusMessage').textContent = message;
+  document.getElementById('linkStatusModal').classList.add('active');
+}
+
+function closeLinkStatusModal() {
+  document.getElementById('linkStatusModal').classList.remove('active');
+}
+
+// ── Delete link ───────────────────────────────────────────────
+function deleteLink(id) {
+  let links = loadLinks();
+  links = links.filter(l => l.id !== id);
+  saveLinks(links);
+  renderLinks();
+  showToast('Link deleted.');
+}
+
+// ── Render dashboard ──────────────────────────────────────────
+function renderLinks() {
+  const links = loadLinks();
+  const table = document.getElementById('linksTable');
+  const emptyState = document.getElementById('emptyState');
+  const totalClicksEl = document.getElementById('totalClicks');
+
+  // Total clicks
+  const total = links.reduce((sum, l) => sum + l.clicks, 0);
+  totalClicksEl.textContent = total;
+
+  if (links.length === 0) {
+    emptyState.style.display = 'block';
+    table.innerHTML = '';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+
+  table.innerHTML = links.map(link => {
+    // Determine status badge
+    let statusBadge = '<span class="link-status-badge active">🟢 Active</span>';
+    if (!link.isEnabled) {
+      statusBadge = '<span class="link-status-badge disabled">🔴 Disabled</span>';
+    } else if (link.clickLimit && link.clicks >= link.clickLimit) {
+      statusBadge = '<span class="link-status-badge expired">⏰ Expired</span>';
+    }
+
+    // Build metadata
+    const createdDate = new Date(link.createdAt);
+    const createdStr = createdDate.toLocaleDateString() + ' ' + createdDate.toLocaleTimeString();
+    const lastAccessedStr = formatTime(link.lastAccessed);
+    const clickInfo = link.clickLimit ? `${link.clicks}/${link.clickLimit}` : `${link.clicks}`;
+
+    return `
+      <div class="link-row" id="row-${link.id}">
+        <div class="link-info">
+          <div class="original-url" title="${escapeHTML(link.original)}">${escapeHTML(link.original)}</div>
+          <div class="short-url-display" data-id="${link.id}" onclick="triggerRedirect('${link.id}')">${escapeHTML(link.short)}</div>
+          <div class="link-metadata">
+            <div class="metadata-item">📅 <strong>Created:</strong> ${escapeHTML(createdStr)}</div>
+            <div class="metadata-item">🕐 <strong>Last accessed:</strong> ${lastAccessedStr}</div>
+          </div>
+          <div style="margin-top: 8px;">${statusBadge}</div>
+        </div>
+        <div class="click-badge">
+          <div class="click-count">${clickInfo}</div>
+          <div class="click-label">click${link.clicks !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="row-actions">
+          <button class="icon-btn" onclick="copyShortLink('${link.id}')" title="Copy short link">COPY</button>
+          <button class="icon-btn" onclick="openEditModal('${link.id}')" title="Edit URL">EDIT</button>
+          <button class="icon-btn ${!link.isEnabled ? 'toggle-disabled' : ''}" onclick="toggleLinkStatus('${link.id}')" title="${link.isEnabled ? 'Disable' : 'Enable'}">${link.isEnabled ? 'ON' : 'OFF'}</button>
+          <button class="icon-btn del" onclick="deleteLink('${link.id}')" title="Delete">DEL</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── Toast notification ────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function escapeHTML(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Enter key support ─────────────────────────────────────────
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') shortenURL();
+});
+
+// Close modals on ESC key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.getElementById('editModal').classList.remove('active');
+    document.getElementById('linkStatusModal').classList.remove('active');
+  }
+});
+
+// Close modals when clicking outside
+document.getElementById('editModal').addEventListener('click', e => {
+  if (e.target.id === 'editModal') closeEditModal();
+});
+
+// ── Init ──────────────────────────────────────────────────────
+renderLinks();
+</script>
+</body>
+</html>
