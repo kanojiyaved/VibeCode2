@@ -53,6 +53,7 @@
   header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 16px;
     margin-bottom: 60px;
   }
@@ -71,6 +72,35 @@
     border-left: 2px solid var(--border);
     padding-left: 16px;
     line-height: 1.6;
+  }
+  .user-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .user-info {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .user-info span {
+    color: var(--accent);
+  }
+  .auth-btn {
+    background: var(--border);
+    color: var(--text);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .auth-btn:hover {
+    background: var(--accent);
+    color: #0a0a0f;
   }
 
   /* Input section */
@@ -591,6 +621,9 @@
   <header>
     <div class="logo">SHRTNR<span>.</span></div>
     <div class="tagline">URL shortener<br>+ analytics</div>
+    <div class="user-controls" id="userControls">
+      <!-- User controls will be populated by JS -->
+    </div>
   </header>
 
   <!-- Input Section -->
@@ -680,42 +713,100 @@
   </div>
 </div>
 
+<!-- Login Modal -->
+<div class="modal" id="loginModal">
+  <div class="modal-content">
+    <div class="modal-title">Login</div>
+    <div class="modal-input-group">
+      <label>Username</label>
+      <input type="text" id="loginUsername" placeholder="Enter username" />
+    </div>
+    <div class="modal-input-group">
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Enter password" />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeLoginModal()">Cancel</button>
+      <button class="modal-btn" onclick="loginUser()">Login</button>
+    </div>
+  </div>
+</div>
+
+<!-- Register Modal -->
+<div class="modal" id="registerModal">
+  <div class="modal-content">
+    <div class="modal-title">Register</div>
+    <div class="modal-input-group">
+      <label>Username</label>
+      <input type="text" id="registerUsername" placeholder="Choose username" />
+    </div>
+    <div class="modal-input-group">
+      <label>Password</label>
+      <input type="password" id="registerPassword" placeholder="Choose password" />
+    </div>
+    <div class="modal-input-group">
+      <label>Confirm Password</label>
+      <input type="password" id="registerConfirmPassword" placeholder="Confirm password" />
+    </div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeRegisterModal()">Cancel</button>
+      <button class="modal-btn" onclick="registerUser()">Register</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
 <script>
 /*
   ══════════════════════════════════════════
-  ENHANCED LINK MANAGER
+  ENHANCED LINK MANAGER WITH AUTHENTICATION
   ══════════════════════════════════════════
 
-  DATA MODEL (stored in localStorage as "shrtnr_links"):
-  links = [
+  DATA MODEL:
+  users = [
     {
-      id: "ab3f9x",
-      original: "https://...",
-      short: "shrtnr/ab3f9x",
-      clicks: 0,
-      clickLimit: 10,           // Optional max clicks
-      isEnabled: true,          // Toggle enable/disable
-      createdAt: timestamp,     // Creation time
-      lastAccessed: timestamp,  // Last click time
+      id: "user1",
+      username: "john",
+      password: "pass123"  // Note: Plain text for demo, not secure
     },
     ...
   ]
 
+  links = [
+    {
+      id: "ab3f9x",
+      userId: "user1",
+      original: "https://...",
+      short: "shrtnr/ab3f9x",
+      clicks: 0,
+      clickLimit: 10,
+      isEnabled: true,
+      createdAt: timestamp,
+      lastAccessed: timestamp,
+    },
+    ...
+  ]
+
+  currentUser: "user1" or null
+
   FEATURES:
-  1. Link Expiry Limit     → clickLimit field, checked on redirect
-  2. Link Enable/Disable   → isEnabled toggle button
-  3. Edit Destination URL  → Modal to update original URL
-  4. Creation Timestamp    → Displayed in dashboard
-  5. Last Accessed         → Updated on each redirect, displayed
-  6. Data Persistence      → localStorage handles all data
+  1. User Authentication  → Login/Register with localStorage
+  2. User-specific Links  → Each user sees only their links
+  3. Link Expiry Limit    → clickLimit field, checked on redirect
+  4. Link Enable/Disable  → isEnabled toggle button
+  5. Edit Destination URL → Modal to update original URL
+  6. Creation Timestamp   → Displayed in dashboard
+  7. Last Accessed        → Updated on each redirect, displayed
+  8. Data Persistence     → localStorage handles all data
   ══════════════════════════════════════════
 */
 
 // ── Storage helpers ──────────────────────────────────────────
 const STORAGE_KEY = 'shrtnr_links';
+const USERS_KEY = 'shrtnr_users';
+const CURRENT_USER_KEY = 'shrtnr_current_user';
 
 function loadLinks() {
   try {
@@ -725,6 +816,28 @@ function loadLinks() {
 
 function saveLinks(links) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(links));
+}
+
+function loadUsers() {
+  try {
+    return JSON.parse(localStorage.getItem(USERS_KEY)) || [];
+  } catch { return []; }
+}
+
+function saveUsers(users) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
+
+function getCurrentUser() {
+  return localStorage.getItem(CURRENT_USER_KEY);
+}
+
+function setCurrentUser(userId) {
+  localStorage.setItem(CURRENT_USER_KEY, userId);
+}
+
+function logoutUser() {
+  localStorage.removeItem(CURRENT_USER_KEY);
 }
 
 // ── ID generation ─────────────────────────────────────────────
@@ -772,6 +885,13 @@ function formatTime(timestamp) {
 
 // ── Shorten ───────────────────────────────────────────────────
 function shortenURL() {
+  const currentUser = getCurrentUser();
+  if (!currentUser) {
+    showToast('Please login to shorten URLs');
+    openLoginModal();
+    return;
+  }
+
   const input = document.getElementById('urlInput');
   const clickLimitInput = document.getElementById('clickLimitInput');
   const errorMsg = document.getElementById('errorMsg');
@@ -798,6 +918,7 @@ function shortenURL() {
   const currentTime = Date.now();
   const newLink = {
     id,
+    userId: currentUser,
     original: val,
     short: `shrtnr/${id}`,
     clicks: 0,
@@ -977,9 +1098,119 @@ function deleteLink(id) {
   showToast('Link deleted.');
 }
 
+// ── Authentication functions ───────────────────────────────────
+function renderUserControls() {
+  const currentUser = getCurrentUser();
+  const controls = document.getElementById('userControls');
+  if (currentUser) {
+    const users = loadUsers();
+    const user = users.find(u => u.id === currentUser);
+    controls.innerHTML = `
+      <div class="user-info">Welcome, <span>${escapeHTML(user ? user.username : 'User')}</span></div>
+      <button class="auth-btn" onclick="logout()">Logout</button>
+    `;
+  } else {
+    controls.innerHTML = `
+      <button class="auth-btn" onclick="openLoginModal()">Login</button>
+      <button class="auth-btn" onclick="openRegisterModal()">Register</button>
+    `;
+  }
+}
+
+function openLoginModal() {
+  document.getElementById('loginModal').classList.add('active');
+  document.getElementById('loginUsername').focus();
+}
+
+function closeLoginModal() {
+  document.getElementById('loginModal').classList.remove('active');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+}
+
+function openRegisterModal() {
+  document.getElementById('registerModal').classList.add('active');
+  document.getElementById('registerUsername').focus();
+}
+
+function closeRegisterModal() {
+  document.getElementById('registerModal').classList.remove('active');
+  document.getElementById('registerUsername').value = '';
+  document.getElementById('registerPassword').value = '';
+  document.getElementById('registerConfirmPassword').value = '';
+}
+
+function loginUser() {
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+
+  if (!username || !password) {
+    showToast('Please fill in all fields');
+    return;
+  }
+
+  const users = loadUsers();
+  const user = users.find(u => u.username === username && u.password === password);
+
+  if (user) {
+    setCurrentUser(user.id);
+    closeLoginModal();
+    renderUserControls();
+    renderLinks();
+    showToast('Logged in successfully!');
+  } else {
+    showToast('Invalid username or password');
+  }
+}
+
+function registerUser() {
+  const username = document.getElementById('registerUsername').value.trim();
+  const password = document.getElementById('registerPassword').value;
+  const confirmPassword = document.getElementById('registerConfirmPassword').value;
+
+  if (!username || !password) {
+    showToast('Please fill in all fields');
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showToast('Passwords do not match');
+    return;
+  }
+
+  const users = loadUsers();
+  if (users.find(u => u.username === username)) {
+    showToast('Username already exists');
+    return;
+  }
+
+  const newUser = {
+    id: 'user_' + Date.now(),
+    username,
+    password
+  };
+
+  users.push(newUser);
+  saveUsers(users);
+  setCurrentUser(newUser.id);
+  closeRegisterModal();
+  renderUserControls();
+  renderLinks();
+  showToast('Registered and logged in!');
+}
+
+function logout() {
+  logoutUser();
+  renderUserControls();
+  renderLinks();
+  showToast('Logged out');
+}
+
 // ── Render dashboard ──────────────────────────────────────────
 function renderLinks() {
-  const links = loadLinks();
+  const currentUser = getCurrentUser();
+  const allLinks = loadLinks();
+  const links = currentUser ? allLinks.filter(l => l.userId === currentUser) : [];
   const table = document.getElementById('linksTable');
   const emptyState = document.getElementById('emptyState');
   const totalClicksEl = document.getElementById('totalClicks');
@@ -1070,7 +1301,25 @@ document.getElementById('editModal').addEventListener('click', e => {
   if (e.target.id === 'editModal') closeEditModal();
 });
 
+document.getElementById('loginModal').addEventListener('click', e => {
+  if (e.target.id === 'loginModal') closeLoginModal();
+});
+
+document.getElementById('registerModal').addEventListener('click', e => {
+  if (e.target.id === 'registerModal') closeRegisterModal();
+});
+
+// Enter key support for login/register
+document.getElementById('loginPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loginUser();
+});
+
+document.getElementById('registerConfirmPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') registerUser();
+});
+
 // ── Init ──────────────────────────────────────────────────────
+renderUserControls();
 renderLinks();
 </script>
 </body>
